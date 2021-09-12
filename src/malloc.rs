@@ -215,13 +215,13 @@ pub fn init_malloc() {
 pub fn malloc(size: usize) -> *mut usize {
     assert!(size > 0);
 
-    let aligned_size = align(size);
-    let total_size = aligned_size + (2 * size_of::<Header>());
-
     let current_root = unsafe { &root };
     if current_root.is_null() {
         init_malloc();
     }
+
+    let aligned_size = align(size);
+    let total_size = aligned_size + (2 * size_of::<Header>());
 
     let (mut block, found) = search_free_spot_or_last(total_size, SearchStrategy::FirstFit);
 
@@ -233,7 +233,9 @@ pub fn malloc(size: usize) -> *mut usize {
     } else {
         // `block` is the last Block, allocate new memory
         let current = unsafe { sbrk(0) as *mut usize };
+        // println!("total_size {:?}", total_size);
         let after = unsafe { sbrk(total_size) as *mut usize };
+        // println!("after {:?}", after as usize);
 
         let new = Block::from_usize(current as usize);
         unsafe {
@@ -255,8 +257,10 @@ mod tests {
     use std::mem;
     use crate::malloc::Block;
     use crate::malloc::align;
+    use crate::malloc::init_malloc;
 
     use super::Header;
+    use super::brk;
     use super::malloc;
 
     #[test]
@@ -295,22 +299,28 @@ mod tests {
         assert_eq!(16, block.header().get_size());
     }
 
-    // #[test]
-    // fn test_block_next() {
-    //     let header = Header::new(8);
-
-    //     let block = Block(&header as *const Header as *mut Header);
-    //     let next_block_ptr = (block.0 as usize + block.get_total_size()) as *mut Header;
-    //     unsafe {
-    //         *next_block_ptr = Header::new(16);
-    //     }
-    //     let next_block = Block(next_block_ptr);
-    //     block.header().next = next_block;
-    //     assert_eq!(block.next().header().get_size(), next_block.header().get_size())
-    // }
-
     #[test]
     fn test_malloc() {
-        malloc(3);
+        use std::mem::size_of;
+        let total_size = |data| -> usize {
+            (2 * size_of::<Header>()) + align(data)
+        };
+
+        init_malloc();
+
+        let initial_brk = unsafe { brk(0 as *mut usize) as usize };
+        println!("current_brk {:?}", initial_brk);
+
+        let requests = [3, 4, 8, 13, 28, 321];
+        let mut counter_size = 0;
+        for request in requests {
+            malloc(request);
+            counter_size += total_size(request);
+        }
+
+        let final_brk = unsafe { brk(0 as *mut usize) as usize };
+        println!("final_brk {:?}", final_brk);
+
+        assert_eq!(initial_brk + counter_size, final_brk);
     }
 }
