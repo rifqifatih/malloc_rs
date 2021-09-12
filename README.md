@@ -9,4 +9,5 @@
 - Explicit free list
 
 ### Notes
-
+rustup override set nightly
+x86_64 for syscall 12 = brk()
