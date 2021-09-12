@@ -17,6 +17,10 @@ impl Header {
         self.internal & !(size_of::<usize>() - 1)
     }
 
+    pub fn set_size(&mut self, size: usize) {
+        self.internal = size | self.get_free_bit();
+    }
+
     pub fn get_free_bit(&self) -> usize {
         self.internal & 1
     }
@@ -66,17 +70,40 @@ impl Block {
         }
     }
 
+    // because of alignment, total size must be at least 1 word which
+    // should have the last bit unused. This is used as free flag
+    // 1 = free
+    // 0 = occupied
     pub fn is_free(&self) -> bool {
-        // because of alignment, total size must be at least 1 word which
-        // should have the last bit unused. This is used as free flag
-        // 1 = free
-        // 0 = occupied
         self.header().get_free_bit() == 1
     }
 
     pub fn set_free(&self, is_free: bool) {
         let free_bit = is_free as usize;
         self.header().set_free_bit(free_bit);
+    }
+
+    // split block, occupy, and return the first `size` of the block.
+    // no splitting occurs if `size` == size of this block.
+    // NOTE: `size` includes the size of the header
+    pub fn split<'a>(&'a mut self, size: usize) -> &'a mut Block {
+        let block_total_size = size_of::<Header>() + self.header().get_size();
+
+        if block_total_size == size {
+            return &mut *self
+        }
+
+        let data_size = size - size_of::<Header>();
+        self.header().set_size(data_size);
+        self.header().set_free_bit(0);
+
+        let remaining_ptr = self.0 as usize + size;
+        let remaining_block = Block::from_ptr(remaining_ptr);
+        let remaining_total_size = block_total_size - size;
+        let remaining_data_size = remaining_total_size - size_of::<Header>();
+        remaining_block.header().set_size(remaining_data_size);
+        remaining_block.header().set_free_bit(1);
+        &mut *self
     }
 }
 
@@ -89,13 +116,13 @@ fn align(size: usize) -> usize {
     (size + (size_of::<usize>() - 1)) & !(size_of::<usize>() - 1)
 }
 
-fn search_free_spot(size: usize, search_strategy: SearchStrategy) -> Option<*mut Block> {
+fn search_free_spot(size: usize, search_strategy: SearchStrategy) -> Option<Block> {
     match search_strategy {
         SearchStrategy::FirstFit => search_first_fit(size)
     }
 }
 
-fn search_first_fit(size: usize) -> Option<*mut Block> {
+fn search_first_fit(size: usize) -> Option<Block> {
     None
 }
 
@@ -134,6 +161,8 @@ pub fn init_malloc() {
 }
 
 pub fn malloc(size: usize) -> *mut usize {
+    assert!(size > 0);
+
     let total_size = align(size_of::<Header>() + size);
 
     let current_root = unsafe { &root };
@@ -141,20 +170,22 @@ pub fn malloc(size: usize) -> *mut usize {
         init_malloc();
     }
 
-    let spot: Option<*mut Block> = search_free_spot(total_size, SearchStrategy::FirstFit);
+    let spot: Option<Block> = search_free_spot(total_size, SearchStrategy::FirstFit);
 
     match spot {
+        Some(mut free_block) => {
+            // reuse old block
+            let new = free_block.split(total_size);
+
+            new.data().unwrap().0
+        },
         None => {
             // allocate new memory
-            let current = unsafe { sbrk(0) };
-            let after = unsafe { sbrk(total_size) };
+            let current = unsafe { sbrk(0) as *mut usize };
+            let after = unsafe { sbrk(total_size) as *mut usize };
 
-
-            0 as *mut usize
-        },
-        _ => {
-            // reuse block
-            0 as *mut usize
+            let new = Block::from_ptr(current as usize);
+            new.data().unwrap().0
         }
     }
 }
