@@ -143,6 +143,36 @@ impl Block {
 
         &mut *self
     }
+
+    pub fn coalesce(&self) {
+        if self.has_next() && self.next().is_free() {
+            let next = self.next();
+            self.header().set_size(self.header().get_size() + next.get_total_size());
+            self.header().next = Block::from_usize(next.next().0 as usize);
+
+            if next.has_next() {
+                let nn = next.next();
+                nn.header().prev = Block::from_usize(next.0 as usize);
+            }
+        }
+
+        if self.has_prev() && self.prev().is_free() {
+            let prev = self.prev();
+            self.header().set_size(self.header().get_size() + prev.get_total_size());
+            self.header().prev = Block::from_usize(prev.prev().0 as usize);
+
+            if prev.has_prev() {
+                let pp = prev.prev();
+                pp.header().next = Block::from_usize(prev.0 as usize);
+            }
+        }
+    }
+}
+
+impl Data {
+    pub fn get_block(&self) -> Block {
+        Block::from_usize(self.0 as usize - size_of::<Header>())
+    }
 }
 
 enum SearchStrategy {
@@ -227,7 +257,8 @@ pub fn malloc(size: usize) -> *mut usize {
 
     if found {
         // `block` can be reuse
-        let new = block.split(total_size);
+        // println!("split total_size {:?}", total_size);
+        let new = block.split(aligned_size);
 
         new.data().unwrap().0
     } else {
@@ -252,6 +283,14 @@ pub fn malloc(size: usize) -> *mut usize {
     }
 }
 
+pub fn free(ptr: *mut usize) {
+    assert!(ptr as usize != 0);
+
+    let block = Data(ptr).get_block();
+    block.set_free(true);
+    block.coalesce();
+}
+
 #[cfg(test)]
 mod tests {
     use std::mem;
@@ -262,6 +301,7 @@ mod tests {
     use super::Header;
     use super::brk;
     use super::malloc;
+    use super::free;
 
     #[test]
     fn test_block_size() {
@@ -322,5 +362,34 @@ mod tests {
         println!("final_brk {:?}", final_brk);
 
         assert_eq!(initial_brk + counter_size, final_brk);
+    }
+
+    #[test]
+    fn test_free() {
+        use std::mem::size_of;
+        let total_size = |data| -> usize {
+            (2 * size_of::<Header>()) + align(data)
+        };
+
+        init_malloc();
+
+        let initial_brk = unsafe { brk(0 as *mut usize) as usize };
+        println!("current_brk {:?}", initial_brk);
+
+        let mut tmp = malloc(18);
+
+        let final_brk = unsafe { brk(0 as *mut usize) as usize };
+        println!("final_brk {:?}", final_brk);
+
+        free(tmp);
+
+        tmp = malloc(18);
+        free(tmp);
+        tmp = malloc(18);
+        free(tmp);
+        tmp = malloc(18);
+        free(tmp);
+
+        assert_eq!(initial_brk + total_size(18), final_brk);
     }
 }
