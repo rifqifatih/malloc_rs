@@ -134,7 +134,8 @@ mod tests {
     use super::malloc;
     use super::free;
 
-    // Some tests requires to run in sequence to keep track of memory using brk
+    // TODO find a better way.
+    // Currently malloc tests requires to run in sequence (w.r.t ALL test) to keep track of memory using brk
     lazy_static! {
         static ref MUTEX: Mutex<i32> = Mutex::new(0);
     }
