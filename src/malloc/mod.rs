@@ -87,13 +87,13 @@ pub fn malloc(size: usize) -> *mut usize {
     let res = 
     if found {
         // `block` can be reuse
-        println!("split total_size {:?}", total_size);
+        // println!("split total_size {:?}", total_size);
         let new = block.split(aligned_size);
 
         new.data().unwrap().0
     } else {
         // `block` is the last Block, allocate new memory
-        println!("allocate total_size {:?}", total_size);
+        // println!("allocate total_size {:?}", total_size);
         let current = unsafe { sbrk(0) as *mut usize };
         unsafe { sbrk(total_size) };
 

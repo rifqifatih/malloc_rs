@@ -43,7 +43,7 @@ impl Header {
         Header::new(size, Block::null(), Block::null())
     }
 
-    pub fn new(internal: usize, prev: Block, next: Block) -> Header {
+    fn new(internal: usize, prev: Block, next: Block) -> Header {
         Header {
             internal: internal,
             prev: prev,
@@ -73,7 +73,7 @@ impl Block {
     }
 
     pub fn next_by_total_size(&self) -> Block {
-        let addr = self as *const Block as usize;
+        let addr = self.0 as usize;
         let next_addr = addr + self.get_total_size();
         Block::from_usize(next_addr)
     }
@@ -99,7 +99,7 @@ impl Block {
     }
 
     pub fn get_total_size(&self) -> usize {
-        self.get_data_size() + 2*size_of::<Header>()
+        self.get_data_size() + 2 * size_of::<Header>()
     }
 
     pub fn data(&self) -> Option<Data> {
@@ -125,14 +125,15 @@ impl Block {
         self.header().set_free_bit(free_bit);
     }
 
-    // Split block. Occupy, and return the first of the two block.
-    // No splitting occurs if `data_size` + (2 * size_of::<Header>()) == size of this block.
+    // Split block if necessary. Occupy, and return the first of the two block.
     // NOTE: `data_size` doesn't include the size of the header
     pub fn split<'a>(&'a mut self, data_size: usize) -> &'a mut Block {
         let old_total_size = self.get_total_size();
         let new_total_size = data_size + (2 * size_of::<Header>());
 
-        if old_total_size == new_total_size {
+        // don't split if it's unnecessary!!! (i.e. only creating header)
+        if old_total_size == new_total_size || old_total_size - new_total_size <= 2 * size_of::<Header>() {
+            self.header().set_free_bit(0);
             return &mut *self
         }
 
