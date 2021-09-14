@@ -112,10 +112,10 @@ impl Block {
         }
     }
 
-    // Because of alignment, total size must be at least 1 word which
-    // should have the last bit unused. This is used as free flag
-    // 1 = free
-    // 0 = occupied
+    /// Because of alignment, total size must be at least 1 word which
+    /// should have the last bit unused. This is used as free flag
+    /// 1 = free
+    /// 0 = occupied
     pub fn is_free(&self) -> bool {
         self.header().get_free_bit() == 1
     }
@@ -125,13 +125,13 @@ impl Block {
         self.header().set_free_bit(free_bit);
     }
 
-    // Split block if necessary. Occupy, and return the first of the two block.
-    // NOTE: `data_size` doesn't include the size of the header
+    /// Split block if necessary. Occupy, and return the first of the two block.
+    /// NOTE: `data_size` doesn't include the size of the header
     pub fn split<'a>(&'a mut self, data_size: usize) -> &'a mut Block {
         let old_total_size = self.get_total_size();
         let new_total_size = data_size + (2 * size_of::<Header>());
 
-        // don't split if it's unnecessary!!! (i.e. only creating header)
+        // don't split if it's unnecessary!!! (e.g. only creating header on the next block)
         if old_total_size == new_total_size || old_total_size - new_total_size <= 2 * size_of::<Header>() {
             self.header().set_free_bit(0);
             return &mut *self
@@ -155,6 +155,8 @@ impl Block {
         &mut *self
     }
 
+    /// Attempts to join next and previous block if it's free.
+    /// This function is called after every `free` in order to look forward / backward only once.
     pub fn coalesce(&self) {
         if self.has_next() && self.next().is_free() {
             let next = self.next();

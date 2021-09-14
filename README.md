@@ -17,3 +17,8 @@ Run multithreaded producer-consumer queue test:
 cargo run $JOB_PER_SECOND $NUM_WORKERS
 ```
 where `$JOB_PER_SECOND` is the number of push to the queue per second, and `$NUM_WORKERS` is the number of worker which consumes the queue.
+
+Example:
+```
+cargo run 30 3
+```

@@ -17,19 +17,27 @@ enum SearchStrategy {
     FirstFit
 }
 
-// Align size to a multiple of machine word.
+/// Align size to a multiple of machine word.
+///
+/// E.g. on x86_64:
+///
+/// - 5 -> 8
+/// - 8 -> 8
+/// - 9 -> 16
 fn align(size: usize) -> usize {
     (size + (size_of::<usize>() - 1)) & !(size_of::<usize>() - 1)
 }
 
-// Search blocks for free spot or return the last block.
-// Caller must check the `bool == true` flag if it found spot, otherwise `Block` is the last block.
+/// Search blocks for free spot or return the last block.
+/// Caller must check the `bool == true` flag if it found spot, otherwise `Block` is the last block.
 fn search_free_spot_or_last(size: usize, search_strategy: SearchStrategy) -> (Block, bool) {
     match search_strategy {
         SearchStrategy::FirstFit => search_first_fit(size)
     }
 }
 
+/// Search blocks consecutively and returns the first one fits.
+/// In case no block fits, `bool` is false, and `Block` is the last block.
 fn search_first_fit(size: usize) -> (Block, bool) {
     let mut current = unsafe { &ROOT };
     let mut found = false;

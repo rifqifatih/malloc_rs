@@ -10,9 +10,10 @@ lazy_static! {
     static ref MUTEX: Mutex<i32> = Mutex::new(0);
 }
 
+/// Stores information of a continuous memory segment
 struct Segment {
     next: *mut Segment,
-    origin: *mut usize,
+    origin: *mut usize, // beginning of the segment
     len: usize
 }
 
@@ -54,6 +55,8 @@ impl<T> Queue<T> {
         }
     }
 
+    /// Remove and return the head of the queue.
+    /// Returns `None` if the queue is empty.
     #[allow(dead_code)]
     pub fn pop<'a>(&'a mut self) -> Option<&'a mut T> {
         let _lock = MUTEX.lock().unwrap();
@@ -88,6 +91,7 @@ impl<T> Queue<T> {
         Some(res)
     }
 
+    /// Push an item to the back of the queue.
     #[allow(dead_code)]
     pub fn push(&mut self, item: T) {
         let _lock = MUTEX.lock().unwrap();
