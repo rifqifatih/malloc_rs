@@ -1,17 +1,18 @@
-## Allocation Strategy
-- First fit
+Memory allocation using Rust. The brk syscall 12 is used for memory allocation specifically for x86_64 machine.
 
-### TODO
-- Next fit
-- Best fit
+## Running
+Use nightly to enable feature `feature(llvm_asm)`
+```
+rustup override set nightly
+```
 
-## Optimization
-- Doubly linked list
-- Coalescing
+Run test:
+```
+cargo test -- --test-threads=1
+```
+Some tests uses brk to keep track of memory offset that requires test to run in sequence.
 
-### TODO
-- Explicit free list
-
-### Notes
-- rustup override set nightly
-- x86_64 for syscall 12 = brk()
+Run multi thread producer-consumer:
+```
+cargo run
+```

@@ -1,12 +1,11 @@
-use std::{mem::size_of, ops::{Deref, DerefMut}};
+use std::mem::size_of;
 use std::sync::Mutex;
-use lazy_static::{lazy_static};
+use lazy_static::lazy_static;
 use crate::malloc::{malloc, free};
 
 const CAPACITY_INC: usize = 32;
 const INITIAL_CAPACITY: usize = 32;
 
-// Shared lock between different instance of Queues
 lazy_static! {
     static ref MUTEX: Mutex<i32> = Mutex::new(0);
 }
@@ -23,23 +22,6 @@ pub struct Queue<T> {
     head_segment: *mut Segment,
     tail_segment: *mut Segment,
     size: *mut usize
-}
-
-unsafe impl<T> Send for Queue<T> where Queue<T>: Send {}
-unsafe impl<T> Sync for Queue<T> where Queue<T>: Sync {}
-
-impl<T> Copy for Queue<T> {}
-
-impl<T> Clone for Queue<T> {
-    fn clone(&self) -> Queue<T> {
-        Queue::<T> {
-            head: self.head,
-            tail: self.tail,
-            head_segment: self.head_segment,
-            tail_segment: self.tail_segment,
-            size: self.size
-        }
-    }
 }
 
 impl Segment {
@@ -75,12 +57,11 @@ impl<T> Queue<T> {
     #[allow(dead_code)]
     pub fn pop<'a>(&'a mut self) -> Option<&'a mut T> {
         let _lock = MUTEX.lock().unwrap();
-        
+        // println!("pop size {:?} at {:?} {:?}", unsafe {*self.size}, self.head as usize, self.head_segment as usize);
+
         if self.is_empty() {
             return None;
         }
-
-        // println!("pop size {:?} at {:?} {:?}", self.size, self.head as usize, self.head_segment as usize);
 
         let res = unsafe { &mut *self.head };
         let head_segment_ptr = self.head_segment;
@@ -95,6 +76,7 @@ impl<T> Queue<T> {
             free(head_segment.origin);
             free(head_segment_ptr as *mut usize);
         } else {
+            // println!("not last block origin {:?}", self.head as usize);
             self.head = (self.head as usize + size_of::<T>()) as *mut T;
         }
 
@@ -102,14 +84,40 @@ impl<T> Queue<T> {
             let current_size = *self.size;
             *self.size = current_size - 1;
         }
+
         Some(res)
     }
 
+    #[allow(dead_code)]
+    pub fn push(&mut self, item: T) {
+        let _lock = MUTEX.lock().unwrap();
+        // println!("push at {:?} {:?}", self.tail as usize, self.tail_segment as usize);
+
+        let tail_segment = unsafe { &*self.tail_segment };
+        if !tail_segment.has_next() {
+            self.allocate_next();
+        }
+
+        unsafe { 
+            let current_size = *self.size;
+            *self.size = current_size + 1;
+            *self.tail = item; 
+        }
+
+        let is_last_block = self.tail as usize + size_of::<T>() >= tail_segment.origin as usize + tail_segment.len;
+        if is_last_block {
+            self.tail_segment = tail_segment.next;
+            let next = unsafe { &*self.tail_segment };
+            self.tail = next.origin as *mut T;
+        } else {
+            self.tail = (self.tail as usize + size_of::<T>()) as *mut T;
+        }
+    }
+
     fn allocate_next(&mut self) {
-        // println!("start allocate");
+        // println!("start allocate {:?} * {:?}", CAPACITY_INC, size_of::<T>());
         let origin = malloc(CAPACITY_INC * size_of::<T>()) as *mut T;
         let segment = malloc(size_of::<Segment>()) as *mut Segment;
-        // println!("allocation at {:?}", origin as usize);
         unsafe {
             *segment = Segment {
                 next: 0 as *mut Segment,
@@ -120,35 +128,6 @@ impl<T> Queue<T> {
 
         let mut tail_segment = unsafe { &mut *self.tail_segment };
         tail_segment.next = segment;
-    }
-
-    #[allow(dead_code)]
-    pub fn push(&mut self, item: T) {
-        let _lock = MUTEX.lock().unwrap();
-        let tail_segment = unsafe { &*self.tail_segment };
-        if !tail_segment.has_next() {
-            // println!("no next");
-            self.allocate_next();
-        }
-
-        // println!("push at {:?} {:?}", self.tail as usize, self.tail_segment as usize);
-
-        unsafe { 
-            let current_size = *self.size;
-            *self.size = current_size + 1;
-            *self.tail = item; 
-        }
-
-        let is_last_block = self.tail as usize + size_of::<T>() >= tail_segment.origin as usize + tail_segment.len;
-        if is_last_block {
-            // println!("push last block {:?}", tail_segment.origin as usize);
-            self.tail_segment = tail_segment.next;
-            let next = unsafe { &*self.tail_segment };
-            // println!("next origin is {:?}", next.origin as usize);
-            self.tail = next.origin as *mut T;
-        } else {
-            self.tail = (self.tail as usize + size_of::<T>()) as *mut T;
-        }
     }
 
     pub fn get_size(&self) -> usize {

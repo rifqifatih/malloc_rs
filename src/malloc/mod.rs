@@ -36,7 +36,9 @@ fn search_first_fit(size: usize) -> (Block, bool) {
 
     while current.has_next() {
         current = current.next();
+        // println!("current {:?}", current.0 as usize);
         if current.is_free() && current.get_total_size() >= size {
+            // println!("found {:?}", current.0 as usize);
             found = true;
             break;
         }

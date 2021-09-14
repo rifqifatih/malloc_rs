@@ -9,9 +9,12 @@ struct Work(Uuid);
 
 fn main() {
     let mut works = Queue::<Work>::new();
+    // Use of unsafe to share pointers between threads
+    let ptr = &mut works as *mut Queue<Work> as usize;
 
     let boss = thread::spawn(move || {
         loop {
+            let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
             let new_uuid = Uuid::new_v4();
             let work = Work(new_uuid);
             works.push(work);
@@ -24,6 +27,7 @@ fn main() {
 
     let worker1 = thread::spawn(move || {
         loop {
+            let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
             let pop = works.pop();
             if pop.is_some() {
                 println!("Worker 1 pops {:?}", pop.unwrap().0)
@@ -35,6 +39,7 @@ fn main() {
 
     let worker2 = thread::spawn(move || {
         loop {
+            let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
             let pop = works.pop();
             if pop.is_some() {
                 println!("Worker 2 pops {:?}", pop.unwrap().0)
