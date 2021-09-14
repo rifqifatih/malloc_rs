@@ -22,3 +22,6 @@ Example:
 ```
 cargo run 30 3
 ```
+
+### TODO
+- Explicit free list optimization

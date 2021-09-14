@@ -13,8 +13,10 @@ lazy_static! {
     static ref MUTEX: Mutex<i32> = Mutex::new(0);
 }
 
+#[allow(dead_code)]
 enum SearchStrategy {
-    FirstFit
+    FirstFit,
+    BestFit
 }
 
 /// Align size to a multiple of machine word.
@@ -32,7 +34,8 @@ fn align(size: usize) -> usize {
 /// Caller must check the `bool == true` flag if it found spot, otherwise `Block` is the last block.
 fn search_free_spot_or_last(size: usize, search_strategy: SearchStrategy) -> (Block, bool) {
     match search_strategy {
-        SearchStrategy::FirstFit => search_first_fit(size)
+        SearchStrategy::FirstFit => search_first_fit(size),
+        SearchStrategy::BestFit => search_best_fit(size)
     }
 }
 
@@ -44,15 +47,37 @@ fn search_first_fit(size: usize) -> (Block, bool) {
 
     while current.has_next() {
         current = current.next();
-        // println!("current {:?}", current.0 as usize);
         if current.is_free() && current.get_total_size() >= size {
-            // println!("found {:?}", current.0 as usize);
             found = true;
             break;
         }
     }
 
     (Block::from_usize(current.0 as usize), found)
+}
+
+/// Search blocks consecutively and returns the minimum-sized block that still fits `size`.
+fn search_best_fit(size: usize) -> (Block, bool) {
+    let mut current = unsafe { &ROOT };
+    let mut found = false;
+    let mut min = usize::MAX;
+    let mut min_block = current;
+
+    while current.has_next() {
+        current = current.next();
+        let current_total_size = current.get_total_size();
+        if current.is_free() && current_total_size >= size && current_total_size < min {
+            found = true;
+            min = current_total_size;
+            min_block = current;
+        }
+    }
+
+    if found { 
+        (Block::from_usize(min_block.0 as usize), found)
+    } else {
+        (Block::from_usize(current.0 as usize), found)
+    }
 }
 
 unsafe fn brk(end_data_segment: *mut usize) -> *mut isize {
@@ -92,7 +117,7 @@ pub fn malloc(size: usize) -> *mut usize {
     let aligned_size = align(size);
     let total_size = aligned_size + (2 * size_of::<Header>());
 
-    let (mut block, found) = search_free_spot_or_last(total_size, SearchStrategy::FirstFit);
+    let (mut block, found) = search_free_spot_or_last(total_size, SearchStrategy::BestFit);
 
     let res = 
     if found {
