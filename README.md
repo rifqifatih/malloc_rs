@@ -6,13 +6,13 @@ Use nightly to enable feature `feature(llvm_asm)`
 rustup override set nightly
 ```
 
-Run test:
+Run unit test:
 ```
 cargo test -- --test-threads=1
 ```
 Some tests uses brk to keep track of memory offset that requires test to run in sequence.
 
-Run multithreaded producer-consumer queue test:
+Run endless multithreaded producer-consumer queue test:
 ```
 cargo run $JOB_PER_SECOND $NUM_WORKERS
 ```
@@ -25,3 +25,6 @@ cargo run 30 3
 
 ### TODO
 - Explicit free list optimization
+- How to run unit test in parallel
+- Safely use Queue concurrently without unsafe dereferencing
+- Implement for other architecture
