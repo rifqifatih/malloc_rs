@@ -1,8 +1,15 @@
-use std::mem::size_of;
+use std::{mem::size_of, ops::{Deref, DerefMut}};
+use std::sync::Mutex;
+use lazy_static::{lazy_static};
 use crate::malloc::{malloc, free};
 
 const CAPACITY_INC: usize = 32;
 const INITIAL_CAPACITY: usize = 32;
+
+// Shared lock between different instance of Queues
+lazy_static! {
+    static ref MUTEX: Mutex<i32> = Mutex::new(0);
+}
 
 struct Segment {
     next: *mut Segment,
@@ -10,12 +17,29 @@ struct Segment {
     len: usize
 }
 
-struct Queue<T> {
+pub struct Queue<T> {
     head: *mut T,
     tail: *mut T,
     head_segment: *mut Segment,
     tail_segment: *mut Segment,
-    size: usize
+    size: *mut usize
+}
+
+unsafe impl<T> Send for Queue<T> where Queue<T>: Send {}
+unsafe impl<T> Sync for Queue<T> where Queue<T>: Sync {}
+
+impl<T> Copy for Queue<T> {}
+
+impl<T> Clone for Queue<T> {
+    fn clone(&self) -> Queue<T> {
+        Queue::<T> {
+            head: self.head,
+            tail: self.tail,
+            head_segment: self.head_segment,
+            tail_segment: self.tail_segment,
+            size: self.size
+        }
+    }
 }
 
 impl Segment {
@@ -24,13 +48,13 @@ impl Segment {
     }
 }
 
-impl <T> Queue<T> {
-
+impl<T> Queue<T> {
     #[allow(dead_code)]
     pub fn new<'a>() -> Queue<T> {
         let head = malloc(INITIAL_CAPACITY * size_of::<T>()) as *mut T;
         let head_segment_ptr = malloc(size_of::<Segment>()) as *mut Segment;
-        println!("new {:?} {:?}", head as usize, head_segment_ptr as usize);
+        let size_ptr = malloc(size_of::<usize>());
+        // println!("new {:?} {:?}", head as usize, head_segment_ptr as usize);
         unsafe {
             *head_segment_ptr = Segment {
                 next: 0 as *mut Segment,
@@ -38,18 +62,24 @@ impl <T> Queue<T> {
                 len: INITIAL_CAPACITY * size_of::<T>()
             };
         }
+        
         Queue::<T> {
             head,
             tail: head,
             head_segment: head_segment_ptr,
             tail_segment: head_segment_ptr,
-            size: 0
+            size: size_ptr
         }
     }
 
     #[allow(dead_code)]
-    pub fn pop<'a>(&'a mut self) -> &'a mut T {
-        assert!(!self.is_empty());
+    pub fn pop<'a>(&'a mut self) -> Option<&'a mut T> {
+        let _lock = MUTEX.lock().unwrap();
+        
+        if self.is_empty() {
+            return None;
+        }
+
         // println!("pop size {:?} at {:?} {:?}", self.size, self.head as usize, self.head_segment as usize);
 
         let res = unsafe { &mut *self.head };
@@ -59,7 +89,7 @@ impl <T> Queue<T> {
 
         let is_last_block = self.head as usize + size_of::<T>() >= head_segment.origin as usize + head_segment.len;
         if is_last_block {
-            println!("is_last_block origin {:?}", head_segment.origin as usize);
+            // println!("is_last_block origin {:?}", head_segment.origin as usize);
             self.head_segment = head_segment.next;
             self.head = next.origin as *mut T;
             free(head_segment.origin);
@@ -68,17 +98,18 @@ impl <T> Queue<T> {
             self.head = (self.head as usize + size_of::<T>()) as *mut T;
         }
 
-        self.size -= 1;
-        res
+        unsafe {    
+            let current_size = *self.size;
+            *self.size = current_size - 1;
+        }
+        Some(res)
     }
 
     fn allocate_next(&mut self) {
-        println!("start allocate");
+        // println!("start allocate");
         let origin = malloc(CAPACITY_INC * size_of::<T>()) as *mut T;
-        println!("done origin");
         let segment = malloc(size_of::<Segment>()) as *mut Segment;
-        println!("done segment");
-        println!("allocation at {:?}", origin as usize);
+        // println!("allocation at {:?}", origin as usize);
         unsafe {
             *segment = Segment {
                 next: 0 as *mut Segment,
@@ -93,23 +124,27 @@ impl <T> Queue<T> {
 
     #[allow(dead_code)]
     pub fn push(&mut self, item: T) {
+        let _lock = MUTEX.lock().unwrap();
         let tail_segment = unsafe { &*self.tail_segment };
         if !tail_segment.has_next() {
-            println!("no next");
+            // println!("no next");
             self.allocate_next();
         }
 
         // println!("push at {:?} {:?}", self.tail as usize, self.tail_segment as usize);
 
-        self.size += 1;
-        unsafe { *self.tail = item; }
+        unsafe { 
+            let current_size = *self.size;
+            *self.size = current_size + 1;
+            *self.tail = item; 
+        }
 
         let is_last_block = self.tail as usize + size_of::<T>() >= tail_segment.origin as usize + tail_segment.len;
         if is_last_block {
-            println!("push last block {:?}", tail_segment.origin as usize);
+            // println!("push last block {:?}", tail_segment.origin as usize);
             self.tail_segment = tail_segment.next;
             let next = unsafe { &*self.tail_segment };
-            println!("next origin is {:?}", next.origin as usize);
+            // println!("next origin is {:?}", next.origin as usize);
             self.tail = next.origin as *mut T;
         } else {
             self.tail = (self.tail as usize + size_of::<T>()) as *mut T;
@@ -117,16 +152,16 @@ impl <T> Queue<T> {
     }
 
     pub fn get_size(&self) -> usize {
-        self.size
+        unsafe { *self.size }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.size == 0
+        self.get_size() == 0
     }
 }
 
 mod tests {
-    use super::Queue;
+    use crate::queue::Queue;
 
     #[test]
     fn test_queue_0() {
@@ -140,7 +175,7 @@ mod tests {
         q.push(21);
         q.push(51);
 
-        assert_eq!(*q.pop(), 1);
+        assert_eq!(*q.pop().unwrap(), 1);
     }
 
     #[test]
@@ -152,7 +187,7 @@ mod tests {
         }
 
         for i in 0..100 {
-            assert_eq!(*q.pop(), i);
+            assert_eq!(*q.pop().unwrap(), i);
         }
     }
 
@@ -165,7 +200,7 @@ mod tests {
         }
 
         for i in 0..100 {
-            assert_eq!(*q.pop(), i);
+            assert_eq!(*q.pop().unwrap(), i);
         }
     }
 }
