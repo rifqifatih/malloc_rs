@@ -1,3 +1,4 @@
+use std::env;
 use uuid::Uuid;
 use std::thread;
 use std::time;
@@ -8,6 +9,11 @@ use malloc_rs::queue::Queue;
 struct Work(Uuid);
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let jps = *&args[1].parse::<u32>().unwrap();
+    let num_workers = *&args[2].parse::<u32>().unwrap();
+
     let mut works = Queue::<Work>::new();
     // Use of unsafe to share pointers between threads
     let ptr = &mut works as *mut Queue<Work> as usize;
@@ -15,42 +21,40 @@ fn main() {
     let boss = thread::spawn(move || {
         loop {
             let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
-            let new_uuid = Uuid::new_v4();
-            let work = Work(new_uuid);
-            works.push(work);
-            println!("Boss push {:?}", new_uuid);
 
-            let dur = time::Duration::from_millis(100);
-            thread::sleep(dur);
-        }
-    });
-
-    let worker1 = thread::spawn(move || {
-        loop {
-            let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
-            let pop = works.pop();
-            if pop.is_some() {
-                println!("Worker 1 pops {:?}", pop.unwrap().0)
+            for _ in 0..jps {
+                let new_uuid = Uuid::new_v4();
+                let work = Work(new_uuid);
+                works.push(work);
+                println!("Boss push {:?}", new_uuid);
             }
-            let dur = time::Duration::from_millis(250);
+
+            println!("Queue size is {:?}", works.get_size());
+            let dur = time::Duration::from_millis(1000);
             thread::sleep(dur);
         }
     });
 
-    let worker2 = thread::spawn(move || {
-        loop {
-            let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
-            let pop = works.pop();
-            if pop.is_some() {
-                println!("Worker 2 pops {:?}", pop.unwrap().0)
+    let mut threads = vec![];
+
+    for i in 0..num_workers {
+        threads.push(thread::spawn(move || {
+            loop {
+                let works = unsafe { &mut *(ptr as *mut Queue<Work>) };
+                let pop = works.pop();
+                if pop.is_some() {
+                    println!("Worker {:?} pops {:?}", i, pop.unwrap().0)
+                }
+                let dur = time::Duration::from_millis(100);
+                thread::sleep(dur);
             }
-            let dur = time::Duration::from_millis(280);
-            thread::sleep(dur);
-        }
-    });
+        }));
+    }
 
-    boss.join();
-    worker1.join();
-    worker2.join();
+    let _ = boss.join();
+    for thread in threads {
+        let _ = thread.join();
+    }
+
     println!("done");
 }

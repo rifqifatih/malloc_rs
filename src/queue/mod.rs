@@ -140,11 +140,9 @@ impl<T> Queue<T> {
 }
 
 mod tests {
-    use crate::queue::Queue;
-
     #[test]
     fn test_queue_0() {
-        let mut q = Queue::<i32>::new();
+        let mut q = super::Queue::<i32>::new();
 
         q.push(1);
         q.push(13);
@@ -159,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_queue_1() {
-        let mut q = Queue::<i32>::new();
+        let mut q = super::Queue::<i32>::new();
         
         for i in 0..100 {
             q.push(i);
@@ -172,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_queue_2() {
-        let mut q = Queue::<i32>::new();
+        let mut q = super::Queue::<i32>::new();
         
         for i in 0..100 {
             q.push(i);

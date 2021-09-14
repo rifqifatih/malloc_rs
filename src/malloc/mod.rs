@@ -208,6 +208,7 @@ mod tests {
         free(tmp2);
         free(tmp3);
         tmp = malloc(3145728);
+        free(tmp);
         
         let final_brk = unsafe { brk(0 as *mut usize) as usize };
         println!("final_brk {:?}", final_brk);

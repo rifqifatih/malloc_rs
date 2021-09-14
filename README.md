@@ -12,7 +12,8 @@ cargo test -- --test-threads=1
 ```
 Some tests uses brk to keep track of memory offset that requires test to run in sequence.
 
-Run multi thread producer-consumer:
+Run multithreaded producer-consumer queue test:
 ```
-cargo run
+cargo run $JOB_PER_SECOND $NUM_WORKERS
 ```
+where `$JOB_PER_SECOND` is the number of push to the queue per second, and `$NUM_WORKERS` is the number of worker which consumes the queue.
