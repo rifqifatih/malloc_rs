@@ -98,8 +98,12 @@ impl Block {
         self.header().get_size()
     }
 
+    pub fn get_total_padding() -> usize {
+        size_of::<Header>()
+    }
+
     pub fn get_total_size(&self) -> usize {
-        self.get_data_size() + 2 * size_of::<Header>()
+        self.get_data_size() + Self::get_total_padding()
     }
 
     pub fn data(&self) -> Option<Data> {
@@ -129,10 +133,10 @@ impl Block {
     /// NOTE: `data_size` doesn't include the size of the header
     pub fn split<'a>(&'a mut self, data_size: usize) -> &'a mut Block {
         let old_total_size = self.get_total_size();
-        let new_total_size = data_size + (2 * size_of::<Header>());
+        let new_total_size = data_size + Block::get_total_padding();
 
         // don't split if it's unnecessary!!! (e.g. only creating header on the next block)
-        if old_total_size == new_total_size || old_total_size - new_total_size <= 2 * size_of::<Header>() {
+        if old_total_size == new_total_size || old_total_size - new_total_size <= Block::get_total_padding() {
             self.header().set_free_bit(0);
             return &mut *self
         }
@@ -142,7 +146,7 @@ impl Block {
         let remaining_ptr = self.0 as usize + new_total_size;
         let remaining_block = Block::from_usize(remaining_ptr);
         let remaining_total_size = old_total_size - new_total_size;
-        let remaining_data_size = remaining_total_size - (2 * size_of::<Header>());
+        let remaining_data_size = remaining_total_size - Block::get_total_padding();
         remaining_block.header().set_size(remaining_data_size);
         remaining_block.header().set_free_bit(1);
         remaining_block.header().next = next_block;

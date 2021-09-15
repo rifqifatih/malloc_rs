@@ -115,7 +115,7 @@ pub fn malloc(size: usize) -> *mut usize {
     }
 
     let aligned_size = align(size);
-    let total_size = aligned_size + (2 * size_of::<Header>());
+    let total_size = aligned_size + Block::get_total_padding();
 
     let (mut block, found) = search_free_spot_or_last(total_size, SearchStrategy::BestFit);
 
@@ -158,13 +158,11 @@ pub fn free(ptr: *mut usize) {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::size_of;
     use std::sync::Mutex;
     use lazy_static::lazy_static;
     use crate::malloc::align;
     use crate::malloc::init_malloc;
 
-    use super::Header;
     use super::brk;
     use super::malloc;
     use super::free;
@@ -193,7 +191,7 @@ mod tests {
         let lock = MUTEX.lock().unwrap();
         init_malloc();
         let total_size = |data| -> usize {
-            (2 * size_of::<Header>()) + align(data)
+            crate::malloc::Block::get_total_padding() + align(data)
         };
 
         let initial_brk = unsafe { brk(0 as *mut usize) as usize };
@@ -218,7 +216,7 @@ mod tests {
         let lock = MUTEX.lock().unwrap();
         init_malloc();
         let total_size = |data| -> usize {
-            (2 * size_of::<Header>()) + align(data)
+            crate::malloc::Block::get_total_padding() + align(data)
         };
 
         init_malloc();
