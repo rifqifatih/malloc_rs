@@ -1,3 +1,4 @@
+use std::env;
 use std::{sync::Mutex, usize};
 use std::mem::size_of;
 use lazy_static::lazy_static;
@@ -32,7 +33,18 @@ fn align(size: usize) -> usize {
 
 /// Search blocks for free spot or return the last block.
 /// Caller must check the `bool == true` flag if it found spot, otherwise `Block` is the last block.
-fn search_free_spot_or_last(size: usize, search_strategy: SearchStrategy) -> (Block, bool) {
+fn search_free_spot_or_last(size: usize) -> (Block, bool) {
+    let args: Vec<String> = env::args().collect();
+
+    let search_strategy = match args.len() {
+        0..=3 => SearchStrategy::FirstFit,
+        _ => match args[3].as_str() {
+            "BEST_FIT" => SearchStrategy::BestFit,
+            "FIRST_FIT" => SearchStrategy::FirstFit,
+            _ => SearchStrategy::FirstFit 
+        }
+    };
+
     match search_strategy {
         SearchStrategy::FirstFit => search_first_fit(size),
         SearchStrategy::BestFit => search_best_fit(size)
@@ -117,7 +129,7 @@ pub fn malloc(size: usize) -> *mut usize {
     let aligned_size = align(size);
     let total_size = aligned_size + Block::get_total_padding();
 
-    let (mut block, found) = search_free_spot_or_last(total_size, SearchStrategy::BestFit);
+    let (mut block, found) = search_free_spot_or_last(total_size);
 
     let res = 
     if found {

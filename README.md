@@ -20,7 +20,7 @@ where `$JOB_PER_SECOND` is the number of push to the queue per second, and `$NUM
 
 Example:
 ```
-cargo run 30 3
+cargo run 30 3 BEST_FIT
 ```
 
 ### TODO
