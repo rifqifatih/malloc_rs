@@ -14,9 +14,9 @@ Some tests uses brk to keep track of memory offset that requires test to run in 
 
 Run endless multithreaded producer-consumer queue test:
 ```
-cargo run $JOB_PER_SECOND $NUM_WORKERS
+cargo run $JOB_PER_SECOND $NUM_WORKERS $STRATEGY
 ```
-where `$JOB_PER_SECOND` is the number of push to the queue per second, and `$NUM_WORKERS` is the number of worker which consumes the queue.
+where `$JOB_PER_SECOND` is the number of push to the queue per second, and `$NUM_WORKERS` is the number of worker which consumes the queue. `$STRATEGY` can be either `BEST_FIT` or `FIRST_FIT` with the latter as default.
 
 Example:
 ```
