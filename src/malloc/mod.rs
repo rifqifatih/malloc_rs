@@ -108,15 +108,16 @@ unsafe fn brk(end_data_segment: *mut usize) -> *mut isize {
 
 unsafe fn sbrk(increment: usize) -> *mut isize {
     if CURRENT_BRK as usize == 0 {
+        #[allow(clippy::zero_ptr)]
         brk(0 as *mut usize);
     }
     let new = CURRENT_BRK as usize + increment;
-    let res = brk(new as *mut usize);
-    res
+    brk(new as *mut usize)
 }
 
 fn init_malloc() {
     unsafe {
+        #[allow(clippy::zero_ptr)]
         let current = brk(0 as *mut usize);
         ROOT = Block::from_usize(current as usize);
         sbrk(size_of::<Header>());

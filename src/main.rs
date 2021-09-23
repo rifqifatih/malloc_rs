@@ -11,8 +11,8 @@ struct Work(Uuid);
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let jps = *&args[1].parse::<u32>().unwrap();
-    let num_workers = *&args[2].parse::<u32>().unwrap();
+    let jps = args[1].parse::<u32>().unwrap();
+    let num_workers = args[2].parse::<u32>().unwrap();
 
     let mut works = Queue::<Work>::new();
     // Use of unsafe to share pointers between threads

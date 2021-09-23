@@ -45,9 +45,9 @@ impl Header {
 
     fn new(internal: usize, prev: Block, next: Block) -> Header {
         Header {
-            internal: internal,
-            prev: prev,
-            next: next,
+            internal,
+            prev,
+            next,
         }
     }
 }
@@ -59,6 +59,7 @@ impl Block {
     }
 
     pub fn null() -> Block {
+        #[allow(clippy::zero_ptr)]
         Block(0 as *mut Header)
     }
 
@@ -67,8 +68,9 @@ impl Block {
         Block(u as *mut Header)
     }
 
+    #[allow(clippy::mut_from_ref)]
     #[inline(always)]
-    pub fn header<'a>(&'a self) -> &'a mut Header {
+    pub fn header(&'_ self) -> &'_ mut Header {
         unsafe { &mut *self.0 }
     }
 
@@ -82,7 +84,8 @@ impl Block {
         !self.header().next.is_null()
     }
 
-    pub fn next<'a>(&'a self) -> &'a mut Block {
+    #[allow(clippy::mut_from_ref)]
+    pub fn next(&'_ self) -> &'_ mut Block {
         &mut self.header().next
     }
 
@@ -90,7 +93,8 @@ impl Block {
         !self.header().prev.is_null()
     }
 
-    pub fn prev<'a>(&'a self) -> &'a mut Block {
+    #[allow(clippy::mut_from_ref)]
+    pub fn prev(&'_ self) -> &'_ mut Block {
         &mut self.header().prev
     }
 
@@ -131,7 +135,7 @@ impl Block {
 
     /// Split block if necessary. Occupy, and return the first of the two block.
     /// NOTE: `data_size` doesn't include the size of the header
-    pub fn split<'a>(&'a mut self, data_size: usize) -> &'a mut Block {
+    pub fn split(&'_ mut self, data_size: usize) -> &'_ mut Block {
         let old_total_size = self.get_total_size();
         let new_total_size = data_size + Block::get_total_padding();
 

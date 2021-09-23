@@ -33,7 +33,8 @@ impl Segment {
 
 impl<T> Queue<T> {
     #[allow(dead_code)]
-    pub fn new<'a>() -> Queue<T> {
+    #[allow(clippy::zero_ptr)]
+    pub fn new() -> Queue<T> {
         let head = malloc(INITIAL_CAPACITY * size_of::<T>()) as *mut T;
         let head_segment_ptr = malloc(size_of::<Segment>()) as *mut Segment;
         let size_ptr = malloc(size_of::<usize>());
@@ -58,7 +59,7 @@ impl<T> Queue<T> {
     /// Remove and return the head of the queue.
     /// Returns `None` if the queue is empty.
     #[allow(dead_code)]
-    pub fn pop<'a>(&'a mut self) -> Option<&'a mut T> {
+    pub fn pop(&'_ mut self) -> Option<&'_ mut T> {
         let _lock = MUTEX.lock().unwrap();
         // println!("pop size {:?} at {:?} {:?}", unsafe {*self.size}, self.head as usize, self.head_segment as usize);
 
@@ -120,6 +121,7 @@ impl<T> Queue<T> {
         }
     }
 
+    #[allow(clippy::zero_ptr)]
     fn allocate_next(&mut self) {
         // println!("start allocate {:?} * {:?}", CAPACITY_INC, size_of::<T>());
         let origin = malloc(CAPACITY_INC * size_of::<T>()) as *mut T;
@@ -142,6 +144,12 @@ impl<T> Queue<T> {
 
     pub fn is_empty(&self) -> bool {
         self.get_size() == 0
+    }
+}
+
+impl<T> Default for Queue<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
