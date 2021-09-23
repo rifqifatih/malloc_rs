@@ -3,7 +3,7 @@ Memory allocation using Rust. The brk syscall 12 is used for memory allocation s
 ## Running
 Use nightly to enable feature `feature(llvm_asm)`
 ```
-rustup override set nightly
+rustup override set nightly-2021-07-12
 ```
 
 Run unit test:
