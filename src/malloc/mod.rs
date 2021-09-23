@@ -1,12 +1,15 @@
-use std::env;
-use std::{sync::Mutex, usize};
-use std::mem::size_of;
 use lazy_static::lazy_static;
+use std::env;
+use std::mem::size_of;
+use std::{sync::Mutex, usize};
 
-use self::{syscalls::{BRK, syscall1}, types::{Block, Header, Data}};
+use self::{
+    syscalls::{syscall1, BRK},
+    types::{Block, Data, Header},
+};
 
-mod types;
 mod syscalls;
+mod types;
 
 static mut ROOT: Block = Block(0 as *mut Header);
 static mut CURRENT_BRK: *mut usize = 0 as *mut usize;
@@ -17,7 +20,7 @@ lazy_static! {
 #[allow(dead_code)]
 enum SearchStrategy {
     FirstFit,
-    BestFit
+    BestFit,
 }
 
 /// Align size to a multiple of machine word.
@@ -41,13 +44,13 @@ fn search_free_spot_or_last(size: usize) -> (Block, bool) {
         _ => match args[3].as_str() {
             "BEST_FIT" => SearchStrategy::BestFit,
             "FIRST_FIT" => SearchStrategy::FirstFit,
-            _ => SearchStrategy::FirstFit 
-        }
+            _ => SearchStrategy::FirstFit,
+        },
     };
 
     match search_strategy {
         SearchStrategy::FirstFit => search_first_fit(size),
-        SearchStrategy::BestFit => search_best_fit(size)
+        SearchStrategy::BestFit => search_best_fit(size),
     }
 }
 
@@ -85,7 +88,7 @@ fn search_best_fit(size: usize) -> (Block, bool) {
         }
     }
 
-    if found { 
+    if found {
         (Block::from_usize(min_block.0 as usize), found)
     } else {
         (Block::from_usize(current.0 as usize), found)
@@ -96,7 +99,11 @@ unsafe fn brk(end_data_segment: *mut usize) -> *mut isize {
     let new = syscall1(BRK, end_data_segment as usize);
     CURRENT_BRK = new as *mut usize;
     // allow brk to set over end, also handles 0
-    (if new < (end_data_segment as usize) {-1} else {new as isize}) as *mut isize
+    (if new < (end_data_segment as usize) {
+        -1
+    } else {
+        new as isize
+    }) as *mut isize
 }
 
 unsafe fn sbrk(increment: usize) -> *mut isize {
@@ -131,8 +138,7 @@ pub fn malloc(size: usize) -> *mut usize {
 
     let (mut block, found) = search_free_spot_or_last(total_size);
 
-    let res = 
-    if found {
+    let res = if found {
         // `block` can be reuse
         // println!("split total_size {:?}", total_size);
         let new = block.split(aligned_size);
@@ -170,14 +176,14 @@ pub fn free(ptr: *mut usize) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-    use lazy_static::lazy_static;
     use crate::malloc::align;
     use crate::malloc::init_malloc;
+    use lazy_static::lazy_static;
+    use std::sync::Mutex;
 
     use super::brk;
-    use super::malloc;
     use super::free;
+    use super::malloc;
 
     // TODO find a better way.
     // Currently malloc tests requires to run in sequence (w.r.t ALL test) to keep track of memory using brk
@@ -202,9 +208,8 @@ mod tests {
     fn test_malloc() {
         let lock = MUTEX.lock().unwrap();
         init_malloc();
-        let total_size = |data| -> usize {
-            crate::malloc::Block::get_total_padding() + align(data)
-        };
+        let total_size =
+            |data| -> usize { crate::malloc::Block::get_total_padding() + align(data) };
 
         let initial_brk = unsafe { brk(0 as *mut usize) as usize };
         println!("initial_brk {:?}", initial_brk);
@@ -227,9 +232,8 @@ mod tests {
     fn test_free() {
         let lock = MUTEX.lock().unwrap();
         init_malloc();
-        let total_size = |data| -> usize {
-            crate::malloc::Block::get_total_padding() + align(data)
-        };
+        let total_size =
+            |data| -> usize { crate::malloc::Block::get_total_padding() + align(data) };
 
         init_malloc();
 
@@ -252,7 +256,7 @@ mod tests {
         free(tmp3);
         tmp = malloc(3145728);
         free(tmp);
-        
+
         let final_brk = unsafe { brk(0 as *mut usize) as usize };
         println!("final_brk {:?}", final_brk);
 

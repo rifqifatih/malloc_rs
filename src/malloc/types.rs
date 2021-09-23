@@ -5,12 +5,12 @@ pub struct Header {
     // Used to store size and free flag for optimization.
     internal: usize,
     prev: Block,
-    next: Block
+    next: Block,
 }
 
 pub struct Block(pub *mut Header);
 
-pub struct Data(pub *mut usize); 
+pub struct Data(pub *mut usize);
 
 impl Header {
     pub fn get_size(&self) -> usize {
@@ -47,7 +47,7 @@ impl Header {
         Header {
             internal: internal,
             prev: prev,
-            next: next
+            next: next,
         }
     }
 }
@@ -136,12 +136,18 @@ impl Block {
         let new_total_size = data_size + Block::get_total_padding();
 
         // don't split if it's unnecessary!!! (e.g. only creating header on the next block)
-        if old_total_size == new_total_size || old_total_size - new_total_size <= Block::get_total_padding() {
+        if old_total_size == new_total_size
+            || old_total_size - new_total_size <= Block::get_total_padding()
+        {
             self.header().set_free_bit(0);
-            return &mut *self
+            return &mut *self;
         }
 
-        let next_block = if self.has_next() { self.next_by_total_size() } else { Block::null() };
+        let next_block = if self.has_next() {
+            self.next_by_total_size()
+        } else {
+            Block::null()
+        };
 
         let remaining_ptr = self.0 as usize + new_total_size;
         let remaining_block = Block::from_usize(remaining_ptr);
@@ -164,7 +170,8 @@ impl Block {
     pub fn coalesce(&self) {
         if self.has_next() && self.next().is_free() {
             let next = self.next();
-            self.header().set_size(self.header().get_size() + next.get_total_size());
+            self.header()
+                .set_size(self.header().get_size() + next.get_total_size());
 
             if next.has_next() {
                 self.header().next = Block::from_usize(next.next().0 as usize);
@@ -177,7 +184,8 @@ impl Block {
 
         if self.has_prev() && self.prev().is_free() {
             let prev = self.prev();
-            prev.header().set_size(prev.get_data_size() + self.get_total_size());
+            prev.header()
+                .set_size(prev.get_data_size() + self.get_total_size());
 
             if self.has_next() {
                 prev.header().next = Block::from_usize(self.next().0 as usize);

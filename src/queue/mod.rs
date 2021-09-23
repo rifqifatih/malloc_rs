@@ -1,7 +1,7 @@
+use crate::malloc::{free, malloc};
+use lazy_static::lazy_static;
 use std::mem::size_of;
 use std::sync::Mutex;
-use lazy_static::lazy_static;
-use crate::malloc::{malloc, free};
 
 const CAPACITY_INC: usize = 32;
 const INITIAL_CAPACITY: usize = 32;
@@ -14,7 +14,7 @@ lazy_static! {
 struct Segment {
     next: *mut Segment,
     origin: *mut usize, // beginning of the segment
-    len: usize
+    len: usize,
 }
 
 pub struct Queue<T> {
@@ -22,7 +22,7 @@ pub struct Queue<T> {
     tail: *mut T,
     head_segment: *mut Segment,
     tail_segment: *mut Segment,
-    size: *mut usize
+    size: *mut usize,
 }
 
 impl Segment {
@@ -42,16 +42,16 @@ impl<T> Queue<T> {
             *head_segment_ptr = Segment {
                 next: 0 as *mut Segment,
                 origin: head as *mut usize,
-                len: INITIAL_CAPACITY * size_of::<T>()
+                len: INITIAL_CAPACITY * size_of::<T>(),
             };
         }
-        
+
         Queue::<T> {
             head,
             tail: head,
             head_segment: head_segment_ptr,
             tail_segment: head_segment_ptr,
-            size: size_ptr
+            size: size_ptr,
         }
     }
 
@@ -71,7 +71,8 @@ impl<T> Queue<T> {
         let head_segment = unsafe { &*self.head_segment };
         let next = unsafe { &*head_segment.next };
 
-        let is_last_block = self.head as usize + size_of::<T>() >= head_segment.origin as usize + head_segment.len;
+        let is_last_block =
+            self.head as usize + size_of::<T>() >= head_segment.origin as usize + head_segment.len;
         if is_last_block {
             // println!("is_last_block origin {:?}", head_segment.origin as usize);
             self.head_segment = head_segment.next;
@@ -83,7 +84,7 @@ impl<T> Queue<T> {
             self.head = (self.head as usize + size_of::<T>()) as *mut T;
         }
 
-        unsafe {    
+        unsafe {
             let current_size = *self.size;
             *self.size = current_size - 1;
         }
@@ -102,13 +103,14 @@ impl<T> Queue<T> {
             self.allocate_next();
         }
 
-        unsafe { 
+        unsafe {
             let current_size = *self.size;
             *self.size = current_size + 1;
-            *self.tail = item; 
+            *self.tail = item;
         }
 
-        let is_last_block = self.tail as usize + size_of::<T>() >= tail_segment.origin as usize + tail_segment.len;
+        let is_last_block =
+            self.tail as usize + size_of::<T>() >= tail_segment.origin as usize + tail_segment.len;
         if is_last_block {
             self.tail_segment = tail_segment.next;
             let next = unsafe { &*self.tail_segment };
@@ -126,7 +128,7 @@ impl<T> Queue<T> {
             *segment = Segment {
                 next: 0 as *mut Segment,
                 origin: origin as *mut usize,
-                len: CAPACITY_INC * size_of::<T>()
+                len: CAPACITY_INC * size_of::<T>(),
             };
         }
 
@@ -162,7 +164,7 @@ mod tests {
     #[test]
     fn test_queue_1() {
         let mut q = super::Queue::<i32>::new();
-        
+
         for i in 0..100 {
             q.push(i);
         }
@@ -175,7 +177,7 @@ mod tests {
     #[test]
     fn test_queue_2() {
         let mut q = super::Queue::<i32>::new();
-        
+
         for i in 0..100 {
             q.push(i);
         }
